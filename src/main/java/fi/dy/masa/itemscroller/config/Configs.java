@@ -35,7 +35,7 @@ public class Configs implements IConfigHandler
         public static final ConfigBoolean CARPET_CTRL_Q_CRAFTING                = new ConfigBoolean("carpetCtrlQCraftingEnabledOnServer",   false, "itemscroller.config.generic.comment.carpetCtrlQCraftingEnabledOnServer").translatedName("itemscroller.config.generic.name.carpetCtrlQCraftingEnabledOnServer");
         public static final ConfigBoolean CLIENT_CRAFTING_FIX                   = new ConfigBoolean("clientCraftingFixOn1.12",              true, "itemscroller.config.generic.comment.clientCraftingFixOn1_12").translatedName("itemscroller.config.generic.name.clientCraftingFixOn1_12");
         public static final ConfigBoolean CRAFTING_RENDER_RECIPE_ITEMS          = new ConfigBoolean("craftingRenderRecipeItems",            true, "itemscroller.config.generic.comment.craftingRenderRecipeItems").translatedName("itemscroller.config.generic.name.craftingRenderRecipeItems");
-        //public static final ConfigBoolean DEBUG_MESSAGES                        = new ConfigBoolean("debugMessages",                        false, "itemscroller.config.generic.comment.debugMessages").translatedName("itemscroller.config.generic.name.debugMessages");
+        public static final ConfigBoolean DEBUG_MESSAGES                        = new ConfigBoolean("debugMessages",                        false, "itemscroller.config.generic.comment.debugMessages").translatedName("itemscroller.config.generic.name.debugMessages");
         public static final ConfigBoolean MOD_MAIN_TOGGLE                       = new ConfigBoolean("modMainToggle",                        true, "itemscroller.config.generic.comment.modMainToggle").translatedName("itemscroller.config.generic.name.modMainToggle");
         public static final ConfigBoolean MASS_CRAFT_INHIBIT_MID_UPDATES        = new ConfigBoolean("massCraftInhibitMidUpdates",           true, "itemscroller.config.generic.comment.massCraftInhibitMidUpdates").translatedName("itemscroller.config.generic.name.massCraftInhibitMidUpdates");
         public static final ConfigInteger MASS_CRAFT_INTERVAL                   = new ConfigInteger("massCraftInterval",                    2, 1, 60, "itemscroller.config.generic.comment.massCraftInterval").translatedName("itemscroller.config.generic.name.massCraftInterval");
@@ -68,7 +68,7 @@ public class Configs implements IConfigHandler
                 CARPET_CTRL_Q_CRAFTING,
                 CLIENT_CRAFTING_FIX,
                 CRAFTING_RENDER_RECIPE_ITEMS,
-                //DEBUG_MESSAGES,
+                DEBUG_MESSAGES,
                 MASS_CRAFT_INHIBIT_MID_UPDATES,
                 MASS_CRAFT_INTERVAL,
                 MASS_CRAFT_ITERATIONS,
