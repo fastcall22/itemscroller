@@ -199,6 +199,7 @@ public class RecipeStorage
                     tag.putInt("LastNetworkId", entry.getNetworkRecipeId().index());
                 }
                  */
+                tagRecipes.add(tag);
             }
         }
 
