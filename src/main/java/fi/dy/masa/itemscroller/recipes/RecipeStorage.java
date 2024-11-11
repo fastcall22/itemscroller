@@ -170,7 +170,11 @@ public class RecipeStorage
                 /*
                 if (tag.contains("LastNetworkId"))
                 {
-                    this.recipes[index].storeNetworkRecipeId(new NetworkRecipeId(tag.getInt("LastNetworkId")));
+                    this.recipes[index].storeNetworkRecipeId(new NetworkRecipeId(tag.getInt("LastNetworkId")), false);
+                }
+                if (tag.contains("GhostNetworkId"))
+                {
+                    this.recipes[index].storeGhostNetworkRecipeId(new NetworkRecipeId(tag.getInt("GhostNetworkId")));
                 }
                  */
             }
@@ -198,7 +202,12 @@ public class RecipeStorage
                 {
                     tag.putInt("LastNetworkId", entry.getNetworkRecipeId().index());
                 }
+                if (entry.getGhostNetworkRecipeId() != null)
+                {
+                    tag.putInt("GhostNetworkId", entry.getGhostNetworkRecipeId().index());
+                }
                  */
+
                 tagRecipes.add(tag);
             }
         }
