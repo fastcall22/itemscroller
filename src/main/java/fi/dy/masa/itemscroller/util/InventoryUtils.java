@@ -88,10 +88,12 @@ public class InventoryUtils
     public static List<Packet<ClientPlayPacketListener>> invUpdatesBuffer = new ArrayList<>();
     private static ItemGroup.DisplayContext displayContext;
 
+    /*
     private static Pair<Integer, Integer> lastSwapTry = Pair.of(-1, -1);
     private static int repeatedSwaps = 0;
     private static int MAX_REPEATED = 5;
     private static List<Pair<Integer, Integer>> hotbarSwaps = new ArrayList<>();
+     */
 
     public static void setInhibitCraftingOutputUpdate(boolean inhibitUpdate)
     {
@@ -2641,9 +2643,6 @@ public class InventoryUtils
         MinecraftClient mc = GameWrap.getClient();
         boolean shulkerBoxFix;
 
-        lastSwapTry = Pair.of(-1, -1);
-        hotbarSwaps.clear();
-
         if (focusedSlot == null || focusedSlot.hasStack() == false)
         {
             return;
@@ -2652,6 +2651,7 @@ public class InventoryUtils
         //System.out.printf("sort - focusedSlot[%d]: %s\n", focusedSlot.id, focusedSlot.hasStack() ? focusedSlot.getStack().getName().getString() : "<EMPTY>");
         ScreenHandler container = gui.getScreenHandler();
         int limit = container.slots.size();
+        int focusedIndex = -1;
 
         if (gui instanceof CreativeInventoryScreen creative && !creative.isInventoryTabSelected())
         {
@@ -2665,8 +2665,6 @@ public class InventoryUtils
         // Do not try to sort shulkers inside a shulker
         shulkerBoxFix = gui instanceof ShulkerBoxScreen && focusedSlot.id < 27;
 
-
-        int focusedIndex = -1;
         for (int i = 0; i < limit; i++)
         {
             Slot slot = container.slots.get(i);
@@ -2688,10 +2686,12 @@ public class InventoryUtils
                 }
             }
         }
+
         if (focusedIndex == -1)
         {
             return;
         }
+
         if (focusedSlot.inventory instanceof PlayerInventory)
         {
             if (range.left() == 5 && range.right() == 46)
@@ -2735,16 +2735,7 @@ public class InventoryUtils
         else
         {
             trySort(gui, range.first(), range.second(), shulkerBoxFix);
-
         }
-
-        // Not used
-        /*
-        if (hotbarSwaps.isEmpty() == false)
-        {
-            restoreHotbarForShulkerSwaps(gui, container);
-        }
-         */
     }
 
     // Does quickSort even throw ?
@@ -2758,81 +2749,6 @@ public class InventoryUtils
         {
             ItemScroller.logger.error("trySort(): failed to sort items", err);
         }
-    }
-
-    /**
-     * Free Hotbar slots for sorting operation.  Restore to Original locations when done using restoreHotbarForShulkerSwaps()
-     *
-     * @param gui
-     * @param container
-     */
-    // Not used
-    @Deprecated(forRemoval = true)
-    private static boolean tryFreeHotbarForShulkerSwaps(HandledScreen<?> gui, ScreenHandler container)
-    {
-        final int lastSlot = container.slots.size() - 1;
-        final int firstSlot = lastSlot - 9;
-        final int freeTarget = 2;
-        int emptySlot = -1;
-        int freeCount = 0;
-
-        //System.out.printf("tryFreeHotbarForShulkerSwaps first %d, last %d, target %d\n", firstSlot, lastSlot, freeTarget);
-
-        for (int i = lastSlot; i > firstSlot; i--)
-        {
-            Slot slot = container.slots.get(i);
-
-            if (slot.hasStack() == false && freeCount < freeTarget)
-            {
-                freeCount++;
-            }
-            else if (freeCount > freeTarget)
-            {
-                break;
-            }
-            else if (slot.hasStack())
-            {
-                emptySlot = fi.dy.masa.malilib.util.InventoryUtils.findEmptySlotInPlayerInventory(container, false, true);
-
-                if (emptySlot >= 0)
-                {
-                    //System.out.printf("tryFreeHotbarForShulkerSwaps SWAP [%d -> %d]\n", i, emptySlot);
-
-                    hotbarSwaps.add(Pair.of(i, emptySlot));
-                    swapSlots(gui, i, emptySlot);
-                    emptySlot = -1;
-                    freeCount++;
-                }
-            }
-        }
-
-        return freeCount > 0;
-    }
-
-    /**
-     * Restore Temporary Hotbar Swaps to their original locations.
-     *
-     * @param gui
-     * @param container
-     */
-    // Not used
-    @Deprecated(forRemoval = true)
-    private static void restoreHotbarForShulkerSwaps(HandledScreen<?> gui, ScreenHandler container)
-    {
-        //System.out.printf("sort - restoring hotbar slots\n");
-
-        hotbarSwaps.reversed().forEach((pair) ->
-                    {
-                        swapSlots(gui, pair.right(), pair.left());
-                    });
-
-        // Seem that we need to swap the first entry a second time inverted, for it to be correct
-        if (hotbarSwaps.isEmpty() == false)
-        {
-            swapSlots(gui, hotbarSwaps.getFirst().left(), hotbarSwaps.getFirst().right());
-        }
-
-        hotbarSwaps.clear();
     }
 
     private static void quickSort(HandledScreen<?> gui, int start, int end, boolean shulkerBoxFix)
@@ -2855,7 +2771,7 @@ public class InventoryUtils
         int[] slotindex_by_arrayindex = snapshot.stream().mapToInt(pair -> start + pair.key()).toArray();
 
         // sort pairs
-        List<Pair<Integer,ItemStack>> sorted_pairs =
+        List<Pair<Integer, ItemStack>> sorted_pairs =
         (
             snapshot.stream()
                 .sorted(
@@ -2881,7 +2797,7 @@ public class InventoryUtils
         ));
 
         // build index of an item's final position by its fake ID
-        Map<Integer,Integer> finalpos_by_id =
+        Map<Integer, Integer> finalpos_by_id =
         (
             IntStream.range(0, ct).boxed()
                 .collect(Collectors.toMap(
@@ -2905,7 +2821,7 @@ public class InventoryUtils
 
             if (src_ix == dst_ix)
             {
-                ItemScroller.logger.debug("{} ok", src_ix);
+                ItemScroller.logger.debug("quickSort(): {} ok", src_ix);
                 continue;
             }
 
@@ -2913,7 +2829,7 @@ public class InventoryUtils
             temp = snapshot.get(src_ix);
             snapshot.set(src_ix, hold);
             hold = temp;
-            ItemScroller.logger.debug("pick up {}; holding {}", src_ix, hold);
+            ItemScroller.logger.debug("quickSort(): pick up {}; holding {}", src_ix, hold);
             clickSlot(gui, slotindex_by_arrayindex[src_ix], 0, SlotActionType.PICKUP);
 
             // continually place the held item into its correct place, following the chain to its end
@@ -2927,7 +2843,7 @@ public class InventoryUtils
                 // it seems to swap in an item from the player's hotbar into the container
                 clickSlot(gui, slotindex_by_arrayindex[dst_ix], 0, SlotActionType.PICKUP);
 
-                ItemScroller.logger.debug("... swap {} ({})", dst_ix, dst != null ? dst.value() : "null");
+                ItemScroller.logger.debug("quickSort(): ... swap {} ({})", dst_ix, dst != null ? dst.value() : "null");
 
                 if (hold == null)
                 {
@@ -2940,13 +2856,13 @@ public class InventoryUtils
 
             if (limit == max_limit)
             {
-                ItemScroller.logger.warn("took too long to follow swap chain ??");
+                ItemScroller.logger.warn("quickSort(): took too long to follow swap chain ??");
             }
 
         }
         if (hold != null)
         {
-            ItemScroller.logger.warn("sorting complete, but still holding {} ??", hold);
+            ItemScroller.logger.warn("quickSort(): sorting complete, but still holding {} ??", hold);
         }
     }
 
@@ -2983,12 +2899,12 @@ public class InventoryUtils
         {
             return Boolean.compare(stack1IsEmpty, stack2IsEmpty);
         }
+
         if (stack1IsEmpty)
         {
             // both stacks are empty
             return 0;
         }
-
 
         // order items according to user-defined top/bottom priority
         // a priority of -1 means that no priority was specified
@@ -2997,10 +2913,11 @@ public class InventoryUtils
         boolean stack1HasUnspecifiedPriority = priority1 == -1;
         boolean stack2HasUnspecifiedPriority = priority2 == -1;
 
-        if ( stack1HasUnspecifiedPriority != stack2HasUnspecifiedPriority )
+        if (stack1HasUnspecifiedPriority != stack2HasUnspecifiedPriority)
         {
             return Boolean.compare(stack1HasUnspecifiedPriority, stack2HasUnspecifiedPriority);
         }
+
         if (priority1 != -1)
         {
             return Integer.compare(priority1, priority2);
@@ -3011,8 +2928,8 @@ public class InventoryUtils
         {
             List<ItemStack> contents1 = stack1.getOrDefault(DataComponentTypes.CONTAINER, ContainerComponent.DEFAULT).streamNonEmpty().toList();
             List<ItemStack> contents2 = stack2.getOrDefault(DataComponentTypes.CONTAINER, ContainerComponent.DEFAULT).streamNonEmpty().toList();
-
             int flip = (Configs.Generic.SORT_SHULKER_BOXES_INVERTED.getBooleanValue() ? -1 : 1);
+
             return Integer.compare(contents1.size(), contents2.size()) * flip;
         }
 
@@ -3021,10 +2938,10 @@ public class InventoryUtils
         {
             BundleContentsComponent bundle1 = stack1.getOrDefault(DataComponentTypes.BUNDLE_CONTENTS, BundleContentsComponent.DEFAULT);
             BundleContentsComponent bundle2 = stack2.getOrDefault(DataComponentTypes.BUNDLE_CONTENTS, BundleContentsComponent.DEFAULT);
+            int flip = (Configs.Generic.SORT_BUNDLES_INVERTED.getBooleanValue() ? -1 : 1);
             Fraction occupancy1 = bundle1.getOccupancy();
             Fraction occupancy2 = bundle2.getOccupancy();
 
-            int flip = (Configs.Generic.SORT_BUNDLES_INVERTED.getBooleanValue() ? -1 : 1);
             return occupancy1.compareTo(occupancy2) * flip;
         }
 
@@ -3040,8 +2957,8 @@ public class InventoryUtils
             if (displayContext == null)
             {
                 displayContext = SortingCategory.INSTANCE.buildDisplayContext(mc);
-                // This isn't used here, but it is required to build the list of items, as if we are opening the
-                // Creative Inventory Screen.
+                // This isn't used here, but it is required to build the list of items,
+                // as if we are opening the Creative Inventory Screen.
             }
 
             SortingCategory.Entry cat1 = SortingCategory.INSTANCE.fromItemStack(stack1);
@@ -3051,11 +2968,9 @@ public class InventoryUtils
             {
                 int index1 = Configs.Generic.SORT_CATEGORY_ORDER.getEntryIndex(cat1);
                 int index2 = Configs.Generic.SORT_CATEGORY_ORDER.getEntryIndex(cat2);
-
-
-
                 boolean stack1UnspecifiedCategoryPriority = index1 == -1;
                 boolean stack2UnspecifiedCategoryPriority = index2 == -1;
+
                 if ( stack1UnspecifiedCategoryPriority != stack2UnspecifiedCategoryPriority)
                 {
                     return Boolean.compare(stack1UnspecifiedCategoryPriority, stack2UnspecifiedCategoryPriority);
@@ -3100,7 +3015,7 @@ public class InventoryUtils
                 return Integer.compare(Registries.ITEM.getRawId(stack1.getItem()), Registries.ITEM.getRawId(stack2.getItem()));
             }
         }
-        if (!areStacksEqual(stack1, stack2))
+        if (areStacksEqual(stack1, stack2) == false)
         {
             // Sort's Data Components by Hash Code
             return Integer.compare(stack1.getComponents().hashCode(), stack2.getComponents().hashCode());
