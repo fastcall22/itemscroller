@@ -2852,14 +2852,14 @@ public class InventoryUtils
         var ct = end - start + 1;
         var handler = gui.getScreenHandler();
 
-        // make snapshot of contents
+        // make snapshot of contents; give each item a temporary ID
         var snapshot = new ArrayList<>(
             IntStream.range(0, ct)
                 .mapToObj(ix -> Pair.of(ix, handler.getSlot(start + ix).getStack()))
                 .toList()
         );
 
-        // sort
+        // sort pairs
         List<Pair<Integer,ItemStack>> sorted_pairs = (
             snapshot.stream()
                 .sorted(
@@ -2868,6 +2868,7 @@ public class InventoryUtils
                     )
                 .toList()
         );
+        /*
         System.err.printf(
             "======\nsort\n%s\n\n",
             IntStream.range(0, ct)
@@ -2880,43 +2881,63 @@ public class InventoryUtils
                     )
                 )
                 .collect(Collectors.joining("\n"))
+        ); */
+
+        // build index of an item's final position by its fake ID
+        Map<Integer,Integer> finalpos_by_id = (
+            IntStream.range(0, ct).boxed()
+                .collect(Collectors.toMap(
+                    ix -> sorted_pairs.get(ix).key(),
+                    ix -> ix
+                ))
         );
 
-        for ( int dst_ix = 0; dst_ix < ct; ++dst_ix ) {
-            var left = sorted_pairs.get(dst_ix);
-            var left_id = left.key();
+        // sort
+        int limit = 0, max_limit = 200;
+        Pair<Integer,ItemStack> temp, dst, hold = null;
+        boolean skip;
+        for ( int src_ix = 0; src_ix < ct; ++src_ix ) {
+            Pair<Integer,ItemStack> src = snapshot.get(src_ix);
+            int src_id = src.key();
+            int dst_ix = finalpos_by_id.get(src_id);
+            dst = snapshot.get(dst_ix);
+            if ( src_ix == dst_ix ) {
+                // System.err.printf("%d: ok\n", src_ix);
+                continue;
+            }
 
-            int right_ix = dst_ix;
-            Pair<Integer,ItemStack> right = null;
-            for ( ; right_ix < ct; ++right_ix ) {
-                right = snapshot.get(right_ix);
-                var right_id = right.key();
-                if ( (int)left_id == (int)right_id ) {
+            // pick up and hold "src"
+            temp = snapshot.get(src_ix);
+            snapshot.set(src_ix, hold);
+            hold = temp;
+            // System.err.printf("pick up %d; holding %s\n", src_ix, hold);
+            clickSlot(gui, start + src_ix, 8, SlotActionType.SWAP);
+
+
+            // continually follow the "dst" and "hold" chain to its end
+            for ( limit = 0; limit < max_limit; ++ limit ) {
+                temp = snapshot.get(dst_ix);
+                skip = (temp == null || temp.value().isEmpty()) && (hold == null || hold.value().isEmpty());
+                snapshot.set(dst_ix, hold);
+                hold = temp;
+                if ( !skip ) {
+                    // System.err.printf("... swap %d (%s)\n", dst_ix, dst != null ? dst.value() : "null");
+                    clickSlot(gui, start + dst_ix, 8, SlotActionType.SWAP);
+                }
+                if ( hold == null ) {
                     break;
                 }
-            }
-            if ( right_ix >= ct ) {
-                System.err.printf("%d: not found?\n", dst_ix);
-                continue;
-            }
-            else if ( dst_ix == right_ix ) {
-                System.err.printf("%d: skip swap %d and %d\n", dst_ix, dst_ix, right_ix);
-                continue;
-            }
-            else if ( left.value().isEmpty() && right.value().isEmpty() ) {
-                // System.err.printf("%d: skip swap %d and %d; both empty\n", dst_ix, dst_ix, right_ix);
-                // continue;
 
-                // can probably scan left/right until the first non-empty
+                dst_ix = finalpos_by_id.get(hold.key());
+                dst = snapshot.get(dst_ix);
+            }
+            if ( limit == max_limit ) {
+                System.err.println("aborting sort; infinite loop (???)");
             }
 
-            System.err.printf("%d: swap %d and %d\n", dst_ix, dst_ix, right_ix);
-            swapSlots(gui, start + dst_ix, start + right_ix);
-            var temp = snapshot.get(dst_ix);
-            snapshot.set(dst_ix, left);
-            snapshot.set(right_ix, temp);
-            // snapshot.set(dst_ix, Pair.of(dst_ix, right.value()));
-            // snapshot.set(right_ix, Pair.of(right_ix, left.value()));
+        }
+        if ( hold != null ) {
+            System.err.printf("sorting complete, but still holding %s ??\n", hold);
         }
     }
 
