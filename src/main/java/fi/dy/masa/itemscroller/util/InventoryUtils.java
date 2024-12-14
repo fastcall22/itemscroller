@@ -53,6 +53,7 @@ import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
 
 import fi.dy.masa.malilib.util.GuiUtils;
+import fi.dy.masa.malilib.util.game.wrap.GameWrap;
 import fi.dy.masa.itemscroller.ItemScroller;
 import fi.dy.masa.itemscroller.config.Configs;
 import fi.dy.masa.itemscroller.config.Hotkeys;
@@ -2637,7 +2638,9 @@ public class InventoryUtils
     {
         Pair<Integer, Integer> range = new IntIntMutablePair(Integer.MAX_VALUE, 0);
         Slot focusedSlot = AccessorUtils.getSlotUnderMouse(gui);
+        MinecraftClient mc = GameWrap.getClient();
         boolean shulkerBoxFix;
+
         lastSwapTry = Pair.of(-1, -1);
         hotbarSwaps.clear();
 
@@ -2645,6 +2648,7 @@ public class InventoryUtils
         {
             return;
         }
+
         //System.out.printf("sort - focusedSlot[%d]: %s\n", focusedSlot.id, focusedSlot.hasStack() ? focusedSlot.getStack().getName().getString() : "<EMPTY>");
         ScreenHandler container = gui.getScreenHandler();
         int limit = container.slots.size();
@@ -2748,7 +2752,8 @@ public class InventoryUtils
         if (Configs.Generic.SORT_ASSUME_EMPTY_BOX_STACKS.getBooleanValue())
         {
             ClientStatusC2SPacket packet = new ClientStatusC2SPacket(ClientStatusC2SPacket.Mode.REQUEST_STATS);
-            MinecraftClient.getInstance().getNetworkHandler().sendPacket(packet);
+
+            mc.getNetworkHandler().sendPacket(packet);
             selectedSlotUpdateTask = () -> trySort(gui, range.first(), range.second(), shulkerBoxFix);
         }
         else
@@ -2757,21 +2762,27 @@ public class InventoryUtils
 
         }
 
-        if ( !hotbarSwaps.isEmpty() )
+        // Not used
+        /*
+        if (hotbarSwaps.isEmpty() == false)
         {
             restoreHotbarForShulkerSwaps(gui, container);
         }
+         */
     }
 
-    private static void trySort(HandledScreen<?> gui, int start, int end, boolean shulkerBoxFix) {
-        try {
+    // Does quickSort even throw ?
+    private static void trySort(HandledScreen<?> gui, int start, int end, boolean shulkerBoxFix)
+    {
+        try
+        {
             quickSort(gui, start, end, shulkerBoxFix);
         }
-        catch ( Exception err ) {
-            ItemScroller.logger.error("failed to sort items", err);
+        catch (Exception err)
+        {
+            ItemScroller.logger.error("trySort(): failed to sort items, error: [{}]", err.getMessage());
         }
     }
-
 
     /**
      * Free Hotbar slots for sorting operation.  Restore to Original locations when done using restoreHotbarForShulkerSwaps()
@@ -2779,6 +2790,7 @@ public class InventoryUtils
      * @param gui
      * @param container
      */
+    @Deprecated(forRemoval = true)
     private static boolean tryFreeHotbarForShulkerSwaps(HandledScreen<?> gui, ScreenHandler container)
     {
         final int lastSlot = container.slots.size() - 1;
@@ -2826,6 +2838,8 @@ public class InventoryUtils
      * @param gui
      * @param container
      */
+    // Not used
+    @Deprecated(forRemoval = true)
     private static void restoreHotbarForShulkerSwaps(HandledScreen<?> gui, ScreenHandler container)
     {
         //System.out.printf("sort - restoring hotbar slots\n");
@@ -2844,20 +2858,20 @@ public class InventoryUtils
         hotbarSwaps.clear();
     }
 
-    private static void quickSort(HandledScreen<?> gui, int start, int end, boolean shulkerBoxFix) {
+    private static void quickSort(HandledScreen<?> gui, int start, int end, boolean shulkerBoxFix)
+    {
         var ct = end - start;
         var handler = gui.getScreenHandler();
-        var _log = ItemScroller.logger;
 
         // make snapshot of contents; give each item a temporary ID
-        var snapshot = new ArrayList<>(
-            IntStream.range(0, ct)
-                .mapToObj(ix -> Pair.of(ix, handler.getSlot(start + ix).getStack()))
-                .toList()
+        var snapshot = new ArrayList<>
+        (
+                IntStream.range(0, ct).mapToObj(ix -> Pair.of(ix, handler.getSlot(start + ix).getStack())).toList()
         );
 
         // sort pairs
-        List<Pair<Integer,ItemStack>> sorted_pairs = (
+        List<Pair<Integer,ItemStack>> sorted_pairs =
+        (
             snapshot.stream()
                 .sorted(
                     (left, right) ->
@@ -2865,7 +2879,9 @@ public class InventoryUtils
                     )
                 .toList()
         );
-        _log.debug(String.format(
+
+        ItemScroller.logger.debug(String.format
+        (
             "======\nsort\n%s\n\n",
             IntStream.range(0, ct)
                 .mapToObj(
@@ -2880,7 +2896,8 @@ public class InventoryUtils
         ));
 
         // build index of an item's final position by its fake ID
-        Map<Integer,Integer> finalpos_by_id = (
+        Map<Integer,Integer> finalpos_by_id =
+        (
             IntStream.range(0, ct).boxed()
                 .collect(Collectors.toMap(
                     ix -> sorted_pairs.get(ix).key(),
@@ -2891,14 +2908,19 @@ public class InventoryUtils
         // sort
         int limit = 0, max_limit = 200;
         Pair<Integer,ItemStack> temp, dst, hold = null;
-        for ( int src_ix = 0; src_ix < ct; ++src_ix ) {
+
+        for (int src_ix = 0; src_ix < ct; ++src_ix)
+        {
             // check if item is in correct position
             Pair<Integer,ItemStack> src = snapshot.get(src_ix);
             int src_id = src.key();
             int dst_ix = finalpos_by_id.get(src_id);
+
             dst = snapshot.get(dst_ix);
-            if ( src_ix == dst_ix ) {
-                _log.debug("{} ok", src_ix);
+
+            if (src_ix == dst_ix)
+            {
+                ItemScroller.logger.debug("{} ok", src_ix);
                 continue;
             }
 
@@ -2906,12 +2928,13 @@ public class InventoryUtils
             temp = snapshot.get(src_ix);
             snapshot.set(src_ix, hold);
             hold = temp;
-            _log.debug("pick up {}; holding {}", src_ix, hold);
+            ItemScroller.logger.debug("pick up {}; holding {}", src_ix, hold);
+
             clickSlot(gui, start + src_ix, 8, SlotActionType.SWAP);
 
-
             // continually follow the "dst" and "hold" chain to its end
-            for ( limit = 0; limit < max_limit; ++limit ) {
+            for (limit = 0; limit < max_limit; ++limit)
+            {
                 temp = snapshot.get(dst_ix);
                 snapshot.set(dst_ix, hold);
                 hold = temp;
@@ -2920,49 +2943,62 @@ public class InventoryUtils
                 // it seems to swap in the player's last hotbar slot into the container, but only when a shulker box
                 // was sorted.
 
-                _log.debug("... swap {} ({})", dst_ix, dst != null ? dst.value() : "null");
+                ItemScroller.logger.debug("... swap {} ({})", dst_ix, dst != null ? dst.value() : "null");
                 clickSlot(gui, start + dst_ix, 8, SlotActionType.SWAP);
 
-                if ( hold == null ) {
+                if (hold == null)
+                {
                     break;
                 }
 
                 dst_ix = finalpos_by_id.get(hold.key());
                 dst = snapshot.get(dst_ix);
             }
-            if ( limit == max_limit ) {
-                _log.warn("took too long following chain; possible infinite loop?");
+
+            if (limit == max_limit)
+            {
+                ItemScroller.logger.warn("took too long following chain; possible infinite loop?");
             }
 
         }
-        if ( hold != null ) {
-            _log.warn("sorting complete, but still holding {} ??", hold);
+        if (hold != null)
+        {
+            ItemScroller.logger.warn("sorting complete, but still holding {} ??", hold);
         }
     }
 
     private static int compareStacks(ItemStack stack1, ItemStack stack2, boolean shulkerBoxFix)
     {
+        MinecraftClient mc = GameWrap.getClient();
         // boxes towards the end of the list
         var stack1IsBox = stack1 != null && isShulkerBox(stack1);
         var stack2IsBox = stack2 != null && isShulkerBox(stack2);
-        if ( Configs.Generic.SORT_SHULKER_BOXES_AT_END.getBooleanValue() && stack1IsBox != stack2IsBox ) {
+
+        if (Configs.Generic.SORT_SHULKER_BOXES_AT_END.getBooleanValue() && stack1IsBox != stack2IsBox)
+        {
             return Boolean.compare(stack1IsBox, stack2IsBox);
         }
 
         // bundles towards the end of the list
         var stack1IsBundle = stack1 != null && isBundle(stack1);
         var stack2IsBundle = stack2 != null && isBundle(stack2);
-        if ( Configs.Generic.SORT_BUNDLES_AT_END.getBooleanValue() && stack1IsBundle != stack2IsBundle ) {
+
+        if (Configs.Generic.SORT_BUNDLES_AT_END.getBooleanValue() && stack1IsBundle != stack2IsBundle)
+        {
             return Boolean.compare(stack1IsBundle, stack2IsBundle);
         }
 
         // empty slots last
         var stack1IsEmpty = stack1 == null || stack1.isEmpty();
         var stack2IsEmpty = stack2 == null || stack2.isEmpty();
-        if ( stack1IsEmpty != stack2IsEmpty ) {
+
+        if (stack1IsEmpty != stack2IsEmpty)
+        {
             return Boolean.compare(stack1IsEmpty, stack2IsEmpty);
         }
-        if ( stack1IsEmpty ) { // both stacks are empty
+        if (stack1IsEmpty)
+        {
+            // both stacks are empty
             return 0;
         }
 
@@ -2971,47 +3007,48 @@ public class InventoryUtils
         // priority of -1 is not defined
         int priority1 = getCustomPriority(stack1);
         int priority2 = getCustomPriority(stack2);
-        if ( (priority1 == -1) != (priority2 == -1) ) {
+
+        if ((priority1 == -1) != (priority2 == -1))
+        {
             return Boolean.compare(priority1 == -1, priority2 == -1);
         }
-        if ( priority1 != -1 ) {
+
+        if (priority1 != -1)
+        {
             return Integer.compare(priority1, priority2);
         }
 
-
         // sort by shulker box contents
-        if ( stack1IsBox && stack2IsBox ) {
+        if (stack1IsBox && stack2IsBox)
+        {
             List<ItemStack> contents1 = stack1.getOrDefault(DataComponentTypes.CONTAINER, ContainerComponent.DEFAULT).streamNonEmpty().toList();
             List<ItemStack> contents2 = stack2.getOrDefault(DataComponentTypes.CONTAINER, ContainerComponent.DEFAULT).streamNonEmpty().toList();
 
-            return Integer.compare(contents1.size(), contents2.size())
-                * (Configs.Generic.SORT_SHULKER_BOXES_INVERTED.getBooleanValue() ? -1 : 1);
+            return Integer.compare(contents1.size(), contents2.size()) * (Configs.Generic.SORT_SHULKER_BOXES_INVERTED.getBooleanValue() ? -1 : 1);
         }
 
-
         // sort by bundle contents
-        if ( stack1IsBundle && stack2IsBundle ) {
+        if (stack1IsBundle && stack2IsBundle)
+        {
             BundleContentsComponent bundle1 = stack1.getOrDefault(DataComponentTypes.BUNDLE_CONTENTS, BundleContentsComponent.DEFAULT);
             BundleContentsComponent bundle2 = stack2.getOrDefault(DataComponentTypes.BUNDLE_CONTENTS, BundleContentsComponent.DEFAULT);
             Fraction occupancy1 = bundle1.getOccupancy();
             Fraction occupancy2 = bundle2.getOccupancy();
 
-            return occupancy1.compareTo(occupancy2)
-                * (Configs.Generic.SORT_BUNDLES_INVERTED.getBooleanValue() ? -1 : 1);
+            return occupancy1.compareTo(occupancy2) * (Configs.Generic.SORT_BUNDLES_INVERTED.getBooleanValue() ? -1 : 1);
         }
 
-
         SortingMethod method = (SortingMethod) Configs.Generic.SORT_METHOD_DEFAULT.getOptionListValue();
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (
-            method.equals(SortingMethod.CATEGORY_NAME)
-            || method.equals(SortingMethod.CATEGORY_COUNT)
-            || method.equals(SortingMethod.CATEGORY_RARITY)
-            || method.equals(SortingMethod.CATEGORY_RAWID)
-            && mc.world != null
-        ) {
+
+        if (method.equals(SortingMethod.CATEGORY_NAME) ||
+            method.equals(SortingMethod.CATEGORY_COUNT) ||
+            method.equals(SortingMethod.CATEGORY_RARITY) ||
+            method.equals(SortingMethod.CATEGORY_RAWID) &&
+            mc.world != null)
+        {
             // Sort by category
-            if (displayContext == null) {
+            if (displayContext == null)
+            {
                 displayContext = SortingCategory.INSTANCE.buildDisplayContext(mc);
                 // This isn't used here, but it is required to build the list of items, as if we are opening the
                 // Creative Inventory Screen.
@@ -3020,10 +3057,13 @@ public class InventoryUtils
             SortingCategory.Entry cat1 = SortingCategory.INSTANCE.fromItemStack(stack1);
             SortingCategory.Entry cat2 = SortingCategory.INSTANCE.fromItemStack(stack2);
 
-            if ( !cat1.getStringValue().equals(cat2.getStringValue()) ) {
+            if (!cat1.getStringValue().equals(cat2.getStringValue()))
+            {
                 int index1 = Configs.Generic.SORT_CATEGORY_ORDER.getEntryIndex(cat1);
                 int index2 = Configs.Generic.SORT_CATEGORY_ORDER.getEntryIndex(cat2);
-                if ( (index1 == -1) != (index2 == -1) ) {
+
+                if ((index1 == -1) != (index2 == -1))
+                {
                     return Boolean.compare(index1 == -1, index2 == -1);
                 }
 
@@ -3031,7 +3071,8 @@ public class InventoryUtils
             }
         }
 
-        if ( stack1.getItem() != stack2.getItem() ) {
+        if (stack1.getItem() != stack2.getItem())
+        {
             if (method.equals(SortingMethod.CATEGORY_NAME) || method.equals(SortingMethod.ITEM_NAME))
             {
                 // Sort by Item Name
@@ -3041,17 +3082,13 @@ public class InventoryUtils
             {
                 // Sort by Item Count
                 int result = Integer.compare(stack2.getCount(), stack1.getCount());
-                return result == 0
-                    ? Integer.compare(Registries.ITEM.getRawId(stack1.getItem()), Registries.ITEM.getRawId(stack2.getItem()))
-                    : result;
+                return result == 0 ? Integer.compare(Registries.ITEM.getRawId(stack1.getItem()), Registries.ITEM.getRawId(stack2.getItem())) : result;
             }
             else if (method.equals(SortingMethod.CATEGORY_RARITY) || method.equals(SortingMethod.ITEM_RARITY))
             {
                 // Sort by Item Rarity
                 int result = stack1.getRarity().compareTo(stack2.getRarity());
-                return result == 0
-                    ? Integer.compare(Registries.ITEM.getRawId(stack1.getItem()), Registries.ITEM.getRawId(stack2.getItem()))
-                    : result;
+                return result == 0 ? Integer.compare(Registries.ITEM.getRawId(stack1.getItem()), Registries.ITEM.getRawId(stack2.getItem())) : result;
             }
             else
             {
@@ -3068,9 +3105,12 @@ public class InventoryUtils
         return Integer.compare(stack2.getCount(), stack1.getCount());
     }
 
-    private static int getCustomPriority(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
-            return -1; // No priority for empty stacks
+    private static int getCustomPriority(ItemStack stack)
+    {
+        if (stack == null || stack.isEmpty())
+        {
+            // No priority for empty stacks
+            return -1;
         }
 
         // Get item ID and name to check against custom priority lists
