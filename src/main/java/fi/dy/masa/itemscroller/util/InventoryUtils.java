@@ -2991,15 +2991,16 @@ public class InventoryUtils
 
 
         // order items according to user-defined top/bottom priority
-        // priority of -1 is not defined
+        // a priority of -1 means that no priority was specified
         int priority1 = getCustomPriority(stack1);
         int priority2 = getCustomPriority(stack2);
+        boolean stack1HasUnspecifiedPriority = priority1 == -1;
+        boolean stack2HasUnspecifiedPriority = priority2 == -1;
 
-        if ((priority1 == -1) != (priority2 == -1))
+        if ( stack1HasUnspecifiedPriority != stack2HasUnspecifiedPriority )
         {
-            return Boolean.compare(priority1 == -1, priority2 == -1);
+            return Boolean.compare(stack1HasUnspecifiedPriority, stack2HasUnspecifiedPriority);
         }
-
         if (priority1 != -1)
         {
             return Integer.compare(priority1, priority2);
@@ -3011,7 +3012,8 @@ public class InventoryUtils
             List<ItemStack> contents1 = stack1.getOrDefault(DataComponentTypes.CONTAINER, ContainerComponent.DEFAULT).streamNonEmpty().toList();
             List<ItemStack> contents2 = stack2.getOrDefault(DataComponentTypes.CONTAINER, ContainerComponent.DEFAULT).streamNonEmpty().toList();
 
-            return Integer.compare(contents1.size(), contents2.size()) * (Configs.Generic.SORT_SHULKER_BOXES_INVERTED.getBooleanValue() ? -1 : 1);
+            int flip = (Configs.Generic.SORT_SHULKER_BOXES_INVERTED.getBooleanValue() ? -1 : 1);
+            return Integer.compare(contents1.size(), contents2.size()) * flip;
         }
 
         // sort by bundle contents
@@ -3022,7 +3024,8 @@ public class InventoryUtils
             Fraction occupancy1 = bundle1.getOccupancy();
             Fraction occupancy2 = bundle2.getOccupancy();
 
-            return occupancy1.compareTo(occupancy2) * (Configs.Generic.SORT_BUNDLES_INVERTED.getBooleanValue() ? -1 : 1);
+            int flip = (Configs.Generic.SORT_BUNDLES_INVERTED.getBooleanValue() ? -1 : 1);
+            return occupancy1.compareTo(occupancy2) * flip;
         }
 
         SortingMethod method = (SortingMethod) Configs.Generic.SORT_METHOD_DEFAULT.getOptionListValue();
@@ -3049,9 +3052,13 @@ public class InventoryUtils
                 int index1 = Configs.Generic.SORT_CATEGORY_ORDER.getEntryIndex(cat1);
                 int index2 = Configs.Generic.SORT_CATEGORY_ORDER.getEntryIndex(cat2);
 
-                if ((index1 == -1) != (index2 == -1))
+
+
+                boolean stack1UnspecifiedCategoryPriority = index1 == -1;
+                boolean stack2UnspecifiedCategoryPriority = index2 == -1;
+                if ( stack1UnspecifiedCategoryPriority != stack2UnspecifiedCategoryPriority)
                 {
-                    return Boolean.compare(index1 == -1, index2 == -1);
+                    return Boolean.compare(stack1UnspecifiedCategoryPriority, stack2UnspecifiedCategoryPriority);
                 }
 
                 return Integer.compare(index1, index2);
@@ -3063,19 +3070,29 @@ public class InventoryUtils
             if (method.equals(SortingMethod.CATEGORY_NAME) || method.equals(SortingMethod.ITEM_NAME))
             {
                 // Sort by Item Name
-                return stack1.getName().getString().compareTo(stack2.getName().getString()) >= 0 ? 1 : -1;
+                return stack1.getName().getString().compareTo(stack2.getName().getString());
             }
             else if (method.equals(SortingMethod.CATEGORY_COUNT) || method.equals(SortingMethod.ITEM_COUNT))
             {
                 // Sort by Item Count
                 int result = Integer.compare(stack2.getCount(), stack1.getCount());
-                return result == 0 ? Integer.compare(Registries.ITEM.getRawId(stack1.getItem()), Registries.ITEM.getRawId(stack2.getItem())) : result;
+                if ( result != 0 )
+                {
+                    return result;
+                }
+
+                return Integer.compare(Registries.ITEM.getRawId(stack1.getItem()), Registries.ITEM.getRawId(stack2.getItem()));
             }
             else if (method.equals(SortingMethod.CATEGORY_RARITY) || method.equals(SortingMethod.ITEM_RARITY))
             {
                 // Sort by Item Rarity
                 int result = stack1.getRarity().compareTo(stack2.getRarity());
-                return result == 0 ? Integer.compare(Registries.ITEM.getRawId(stack1.getItem()), Registries.ITEM.getRawId(stack2.getItem())) : result;
+                if ( result != 0 )
+                {
+                    return result;
+                }
+
+                return Integer.compare(Registries.ITEM.getRawId(stack1.getItem()), Registries.ITEM.getRawId(stack2.getItem()));
             }
             else
             {
