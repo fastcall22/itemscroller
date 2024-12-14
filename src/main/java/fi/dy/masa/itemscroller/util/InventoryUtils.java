@@ -2661,34 +2661,10 @@ public class InventoryUtils
         {
             return;
         }
-        if (gui instanceof ShulkerBoxScreen)
-        {
-            //System.out.printf("sort - ShulkerBoxScreen %s\n", true);
 
-            // Free Hotbar slots if sorting inside the Shulker Box
-            //      Might cause an endless loop if hotbar is full.
-            if (focusedSlot.id < 27)
-            {
-            /*
-                if (tryFreeHotbarForShulkerSwaps(gui, container) == false)
-                {
-                    ItemScroller.logger.warn("sortInventory: Free Hotbar slots are required in order to complete a Shulker box sorting task.");
-                    return;
-                }
-             */
+        // Do not try to sort shulkers inside a shulker
+        shulkerBoxFix = gui instanceof ShulkerBoxScreen && focusedSlot.id < 27;
 
-                // Don't sort Shulkers into a shulker.
-                shulkerBoxFix = true;
-            }
-            else
-            {
-                shulkerBoxFix = false;
-            }
-        }
-        else
-        {
-            shulkerBoxFix = false;
-        }
 
         int focusedIndex = -1;
         for (int i = 0; i < limit; i++)
@@ -2780,7 +2756,7 @@ public class InventoryUtils
         }
         catch (Exception err)
         {
-            ItemScroller.logger.error("trySort(): failed to sort items, error: [{}]", err.getMessage());
+            ItemScroller.logger.error("trySort(): failed to sort items", err);
         }
     }
 
@@ -2864,11 +2840,19 @@ public class InventoryUtils
         var ct = end - start;
         var handler = gui.getScreenHandler();
 
-        // make snapshot of contents; give each item a temporary ID
+        // make snapshot of contents; give each item a temporary ID.
+        // this ID also happens to be its slot index, relative to `start`.
         var snapshot = new ArrayList<>
         (
-                IntStream.range(0, ct).mapToObj(ix -> Pair.of(ix, handler.getSlot(start + ix).getStack())).toList()
+                IntStream.range(0, end - start)
+                    .mapToObj(ix -> Pair.of(ix, handler.getSlot(start + ix).getStack()))
+                    .filter(pair -> !(shulkerBoxFix && isShulkerBox(pair.value())))
+                    .toList()
         );
+        ct = snapshot.size();
+
+        // because the array might have unsortable holes, build an index from array index to slot index
+        int[] slotindex_by_arrayindex = snapshot.stream().mapToInt(pair -> start + pair.key()).toArray();
 
         // sort pairs
         List<Pair<Integer,ItemStack>> sorted_pairs =
@@ -2876,7 +2860,7 @@ public class InventoryUtils
             snapshot.stream()
                 .sorted(
                     (left, right) ->
-                        compareStacks(left.value(), right.value(), shulkerBoxFix)
+                        compareStacks(left.value(), right.value())
                     )
                 .toList()
         );
@@ -2930,10 +2914,9 @@ public class InventoryUtils
             snapshot.set(src_ix, hold);
             hold = temp;
             ItemScroller.logger.debug("pick up {}; holding {}", src_ix, hold);
+            clickSlot(gui, slotindex_by_arrayindex[src_ix], 8, SlotActionType.SWAP);
 
-            clickSlot(gui, start + src_ix, 8, SlotActionType.SWAP);
-
-            // continually follow the "dst" and "hold" chain to its end
+            // continually place the held item into its correct place, following the chain to its end
             for (limit = 0; limit < max_limit; ++limit)
             {
                 temp = snapshot.get(dst_ix);
@@ -2943,9 +2926,9 @@ public class InventoryUtils
                 // todo: we could skip swapping empty slots, but for some reason, this is not reliable.
                 // it seems to swap in the player's last hotbar slot into the container, but only when a shulker box
                 // was sorted.
+                clickSlot(gui, slotindex_by_arrayindex[dst_ix], 0, SlotActionType.SWAP);
 
                 ItemScroller.logger.debug("... swap {} ({})", dst_ix, dst != null ? dst.value() : "null");
-                clickSlot(gui, start + dst_ix, 8, SlotActionType.SWAP);
 
                 if (hold == null)
                 {
@@ -2958,7 +2941,7 @@ public class InventoryUtils
 
             if (limit == max_limit)
             {
-                ItemScroller.logger.warn("took too long following chain; possible infinite loop?");
+                ItemScroller.logger.warn("took too long to follow swap chain ??");
             }
 
         }
@@ -2968,19 +2951,13 @@ public class InventoryUtils
         }
     }
 
-    private static int compareStacks(ItemStack stack1, ItemStack stack2, boolean shulkerBoxFix)
+    private static int compareStacks(ItemStack stack1, ItemStack stack2)
     {
         MinecraftClient mc = GameWrap.getClient();
         // boxes towards the end of the list
         var stack1IsBox = stack1 != null && isShulkerBox(stack1);
         var stack2IsBox = stack2 != null && isShulkerBox(stack2);
 
-        // Don't sort shulker boxes if 'fix' is enabled; such as if we are in the ShulkerBox Screen,
-        // since we can't insert shulkers into a Shulker Box.
-        if (shulkerBoxFix && (stack1IsBox || stack2IsBox))
-        {
-            return 0;
-        }
 
         if (Configs.Generic.SORT_SHULKER_BOXES_AT_END.getBooleanValue() && stack1IsBox != stack2IsBox)
         {
