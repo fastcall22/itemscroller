@@ -2891,7 +2891,6 @@ public class InventoryUtils
         // sort
         int limit = 0, max_limit = 200;
         Pair<Integer,ItemStack> temp, dst, hold = null;
-        boolean skip;
         for ( int src_ix = 0; src_ix < ct; ++src_ix ) {
             // check if item is in correct position
             Pair<Integer,ItemStack> src = snapshot.get(src_ix);
@@ -2914,13 +2913,16 @@ public class InventoryUtils
             // continually follow the "dst" and "hold" chain to its end
             for ( limit = 0; limit < max_limit; ++limit ) {
                 temp = snapshot.get(dst_ix);
-                skip = (temp == null || temp.value().isEmpty()) && (hold == null || hold.value().isEmpty());
                 snapshot.set(dst_ix, hold);
                 hold = temp;
-                if ( !skip ) {
-                    _log.debug("... swap {} ({})", dst_ix, dst != null ? dst.value() : "null");
-                    clickSlot(gui, start + dst_ix, 8, SlotActionType.SWAP);
-                }
+
+                // todo: we could skip swapping empty slots, but for some reason, this is not reliable.
+                // it seems to swap in the player's last hotbar slot into the container, but only when a shulker box
+                // was sorted.
+
+                _log.debug("... swap {} ({})", dst_ix, dst != null ? dst.value() : "null");
+                clickSlot(gui, start + dst_ix, 8, SlotActionType.SWAP);
+
                 if ( hold == null ) {
                     break;
                 }
