@@ -2953,10 +2953,13 @@ public class InventoryUtils
     private static int compareStacks(ItemStack stack1, ItemStack stack2)
     {
         MinecraftClient mc = GameWrap.getClient();
-        // boxes towards the end of the list
-        var stack1IsBox = stack1 != null && isShulkerBox(stack1);
-        var stack2IsBox = stack2 != null && isShulkerBox(stack2);
 
+        stack1 = stack1 != null ? stack1 : ItemStack.EMPTY;
+        stack2 = stack2 != null ? stack2 : ItemStack.EMPTY;
+
+        // boxes towards the end of the list
+        boolean stack1IsBox = isShulkerBox(stack1);
+        boolean stack2IsBox = isShulkerBox(stack2);
 
         if (Configs.Generic.SORT_SHULKER_BOXES_AT_END.getBooleanValue() && stack1IsBox != stack2IsBox)
         {
@@ -2964,8 +2967,8 @@ public class InventoryUtils
         }
 
         // bundles towards the end of the list
-        var stack1IsBundle = stack1 != null && isBundle(stack1);
-        var stack2IsBundle = stack2 != null && isBundle(stack2);
+        boolean stack1IsBundle = isBundle(stack1);
+        boolean stack2IsBundle = isBundle(stack2);
 
         if (Configs.Generic.SORT_BUNDLES_AT_END.getBooleanValue() && stack1IsBundle != stack2IsBundle)
         {
@@ -2973,8 +2976,8 @@ public class InventoryUtils
         }
 
         // empty slots last
-        var stack1IsEmpty = stack1 == null || stack1.isEmpty();
-        var stack2IsEmpty = stack2 == null || stack2.isEmpty();
+        boolean stack1IsEmpty = stack1.isEmpty();
+        boolean stack2IsEmpty = stack2.isEmpty();
 
         if (stack1IsEmpty != stack2IsEmpty)
         {
