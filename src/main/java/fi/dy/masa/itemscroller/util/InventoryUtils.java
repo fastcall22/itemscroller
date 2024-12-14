@@ -2749,25 +2749,11 @@ public class InventoryUtils
         {
             ClientStatusC2SPacket packet = new ClientStatusC2SPacket(ClientStatusC2SPacket.Mode.REQUEST_STATS);
             MinecraftClient.getInstance().getNetworkHandler().sendPacket(packet);
-            selectedSlotUpdateTask = () -> {
-                try {
-                    quickSort(gui, range.first(), range.second() - 1, shulkerBoxFix);
-                }
-                catch ( Exception err ) {
-                    System.err.println("failed to sort items");
-                    err.printStackTrace(System.err);
-                }
-            };
+            selectedSlotUpdateTask = () -> trySort(gui, range.first(), range.second(), shulkerBoxFix);
         }
         else
         {
-            try {
-                quickSort(gui, range.first(), range.second() - 1, shulkerBoxFix);
-            }
-            catch ( Exception err ) {
-                System.err.println("failed to sort items");
-                err.printStackTrace(System.err);
-            }
+            trySort(gui, range.first(), range.second(), shulkerBoxFix);
 
         }
 
@@ -2776,6 +2762,16 @@ public class InventoryUtils
             restoreHotbarForShulkerSwaps(gui, container);
         }
     }
+
+    private static void trySort(HandledScreen<?> gui, int start, int end, boolean shulkerBoxFix) {
+        try {
+            quickSort(gui, start, end, shulkerBoxFix);
+        }
+        catch ( Exception err ) {
+            ItemScroller.logger.error("failed to sort items", err);
+        }
+    }
+
 
     /**
      * Free Hotbar slots for sorting operation.  Restore to Original locations when done using restoreHotbarForShulkerSwaps()
@@ -2849,8 +2845,9 @@ public class InventoryUtils
     }
 
     private static void quickSort(HandledScreen<?> gui, int start, int end, boolean shulkerBoxFix) {
-        var ct = end - start + 1;
+        var ct = end - start;
         var handler = gui.getScreenHandler();
+        var _log = ItemScroller.logger;
 
         // make snapshot of contents; give each item a temporary ID
         var snapshot = new ArrayList<>(
@@ -2868,8 +2865,7 @@ public class InventoryUtils
                     )
                 .toList()
         );
-        /*
-        System.err.printf(
+        _log.debug(String.format(
             "======\nsort\n%s\n\n",
             IntStream.range(0, ct)
                 .mapToObj(
@@ -2881,7 +2877,7 @@ public class InventoryUtils
                     )
                 )
                 .collect(Collectors.joining("\n"))
-        ); */
+        ));
 
         // build index of an item's final position by its fake ID
         Map<Integer,Integer> finalpos_by_id = (
@@ -2897,12 +2893,13 @@ public class InventoryUtils
         Pair<Integer,ItemStack> temp, dst, hold = null;
         boolean skip;
         for ( int src_ix = 0; src_ix < ct; ++src_ix ) {
+            // check if item is in correct position
             Pair<Integer,ItemStack> src = snapshot.get(src_ix);
             int src_id = src.key();
             int dst_ix = finalpos_by_id.get(src_id);
             dst = snapshot.get(dst_ix);
             if ( src_ix == dst_ix ) {
-                // System.err.printf("%d: ok\n", src_ix);
+                _log.debug("{} ok", src_ix);
                 continue;
             }
 
@@ -2910,18 +2907,18 @@ public class InventoryUtils
             temp = snapshot.get(src_ix);
             snapshot.set(src_ix, hold);
             hold = temp;
-            // System.err.printf("pick up %d; holding %s\n", src_ix, hold);
+            _log.debug("pick up {}; holding {}", src_ix, hold);
             clickSlot(gui, start + src_ix, 8, SlotActionType.SWAP);
 
 
             // continually follow the "dst" and "hold" chain to its end
-            for ( limit = 0; limit < max_limit; ++ limit ) {
+            for ( limit = 0; limit < max_limit; ++limit ) {
                 temp = snapshot.get(dst_ix);
                 skip = (temp == null || temp.value().isEmpty()) && (hold == null || hold.value().isEmpty());
                 snapshot.set(dst_ix, hold);
                 hold = temp;
                 if ( !skip ) {
-                    // System.err.printf("... swap %d (%s)\n", dst_ix, dst != null ? dst.value() : "null");
+                    _log.debug("... swap {} ({})", dst_ix, dst != null ? dst.value() : "null");
                     clickSlot(gui, start + dst_ix, 8, SlotActionType.SWAP);
                 }
                 if ( hold == null ) {
@@ -2932,12 +2929,12 @@ public class InventoryUtils
                 dst = snapshot.get(dst_ix);
             }
             if ( limit == max_limit ) {
-                System.err.println("aborting sort; infinite loop (???)");
+                _log.warn("took too long following chain; possible infinite loop?");
             }
 
         }
         if ( hold != null ) {
-            System.err.printf("sorting complete, but still holding %s ??\n", hold);
+            _log.warn("sorting complete, but still holding {} ??", hold);
         }
     }
 
