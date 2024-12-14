@@ -2790,6 +2790,7 @@ public class InventoryUtils
      * @param gui
      * @param container
      */
+    // Not used
     @Deprecated(forRemoval = true)
     private static boolean tryFreeHotbarForShulkerSwaps(HandledScreen<?> gui, ScreenHandler container)
     {
@@ -2973,6 +2974,13 @@ public class InventoryUtils
         // boxes towards the end of the list
         var stack1IsBox = stack1 != null && isShulkerBox(stack1);
         var stack2IsBox = stack2 != null && isShulkerBox(stack2);
+
+        // Don't sort shulker boxes if 'fix' is enabled; such as if we are in the ShulkerBox Screen,
+        // since we can't insert shulkers into a Shulker Box.
+        if (shulkerBoxFix && (stack1IsBox || stack2IsBox))
+        {
+            return 0;
+        }
 
         if (Configs.Generic.SORT_SHULKER_BOXES_AT_END.getBooleanValue() && stack1IsBox != stack2IsBox)
         {
