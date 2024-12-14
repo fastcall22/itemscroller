@@ -2914,7 +2914,7 @@ public class InventoryUtils
             snapshot.set(src_ix, hold);
             hold = temp;
             ItemScroller.logger.debug("pick up {}; holding {}", src_ix, hold);
-            clickSlot(gui, slotindex_by_arrayindex[src_ix], 8, SlotActionType.SWAP);
+            clickSlot(gui, slotindex_by_arrayindex[src_ix], 0, SlotActionType.PICKUP);
 
             // continually place the held item into its correct place, following the chain to its end
             for (limit = 0; limit < max_limit; ++limit)
@@ -2924,9 +2924,8 @@ public class InventoryUtils
                 hold = temp;
 
                 // todo: we could skip swapping empty slots, but for some reason, this is not reliable.
-                // it seems to swap in the player's last hotbar slot into the container, but only when a shulker box
-                // was sorted.
-                clickSlot(gui, slotindex_by_arrayindex[dst_ix], 0, SlotActionType.SWAP);
+                // it seems to swap in an item from the player's hotbar into the container
+                clickSlot(gui, slotindex_by_arrayindex[dst_ix], 0, SlotActionType.PICKUP);
 
                 ItemScroller.logger.debug("... swap {} ({})", dst_ix, dst != null ? dst.value() : "null");
 
