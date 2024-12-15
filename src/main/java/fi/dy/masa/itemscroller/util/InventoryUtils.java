@@ -2761,7 +2761,7 @@ public class InventoryUtils
         var snapshot = new ArrayList<>
         (
                 IntStream.range(0, end - start)
-                    .mapToObj(ix -> Pair.of(ix, handler.getSlot(start + ix).getStack()))
+                    .mapToObj(ix -> Pair.of(ix, handler.getSlot(start + ix).getStack().copy()))
                     .filter(pair -> !(shulkerBoxFix && isShulkerBox(pair.value())))
                     .toList()
         );
@@ -2808,6 +2808,7 @@ public class InventoryUtils
 
         // sort
         int limit = 0, max_limit = 200;
+        boolean right_click;
         Pair<Integer,ItemStack> temp, dst, hold = null;
 
         for (int src_ix = 0; src_ix < ct; ++src_ix)
@@ -2826,25 +2827,32 @@ public class InventoryUtils
             }
 
             // pick up and hold "src"
-            temp = snapshot.get(src_ix);
             snapshot.set(src_ix, hold);
-            hold = temp;
+            hold = src;
             ItemScroller.logger.debug("quickSort(): pick up {}; holding {}", src_ix, hold);
             clickSlot(gui, slotindex_by_arrayindex[src_ix], 0, SlotActionType.PICKUP);
 
             // continually place the held item into its correct place, following the chain to its end
+            // todo: we could skip swapping empty slots, but for some reason, this is not reliable. it seems to swap
+            //       in an item from the player's hotbar into the container.
             for (limit = 0; limit < max_limit; ++limit)
             {
-                temp = snapshot.get(dst_ix);
+                // bundle shenanigans. swapping held item/bundle/empty with am item/bundle/empty slot will require
+                // either a left click or right click
+                // :upside_down:
+                ItemStack a = hold.value();
+                ItemStack b = dst != null ? dst.value() : ItemStack.EMPTY;
+                right_click = (isBundle(a) || isBundle(b)) && !(a.isEmpty() || b.isEmpty());
+
                 snapshot.set(dst_ix, hold);
-                hold = temp;
+                hold = dst;
 
-                // todo: we could skip swapping empty slots, but for some reason, this is not reliable.
-                // it seems to swap in an item from the player's hotbar into the container
-                clickSlot(gui, slotindex_by_arrayindex[dst_ix], 0, SlotActionType.PICKUP);
+                clickSlot(gui, slotindex_by_arrayindex[dst_ix], right_click?1:0, SlotActionType.PICKUP);
 
-                ItemScroller.logger.debug("quickSort(): ... swap {} ({})", dst_ix, dst != null ? dst.value() : "null");
-
+                ItemScroller.logger.debug(
+                    "quickSort(): ... {} click {} {}; holding {}",
+                    right_click?"right":"left", dst_ix, dst != null ? dst.value() : "null", hold
+                );
                 if (hold == null)
                 {
                     break;
