@@ -2720,6 +2720,33 @@ public class InventoryUtils
             }
         }
 
+        // try to find usable hotbar slot
+        int hotbarSlot = 8;
+        if ( shulkerBoxFix )
+        {
+            var playerInventory = MinecraftClient.getInstance().player.getInventory();
+            while ( hotbarSlot >= 0 )
+            {
+                int slot_ix = container.getSlotIndex(playerInventory, hotbarSlot).orElse(-1);
+                if ( slot_ix != -1 && !isShulkerBox(container.getSlot(slot_ix).getStack()) )
+                {
+                    break;
+                }
+
+                --hotbarSlot;
+            }
+
+            if ( hotbarSlot < 0 )
+            {
+                ItemScroller.logger.warn("sortInventory(): no usable hotbar slot to sort shulkerbox");
+                return;
+            }
+        }
+        final int swapSlot = hotbarSlot;
+
+
+
+
         //System.out.printf("Sorting [%d, %d] (first, second)\n", range.first(), range.second());
         //System.out.printf("Sorting [%d, %d] (left, right)\n", range.left(), range.right());
         tryClearCursor(gui);
@@ -2730,20 +2757,19 @@ public class InventoryUtils
             ClientStatusC2SPacket packet = new ClientStatusC2SPacket(ClientStatusC2SPacket.Mode.REQUEST_STATS);
 
             mc.getNetworkHandler().sendPacket(packet);
-            selectedSlotUpdateTask = () -> trySort(gui, range.first(), range.second(), shulkerBoxFix);
+            selectedSlotUpdateTask = () -> trySort(gui, range.first(), range.second(), shulkerBoxFix, swapSlot);
         }
         else
         {
-            trySort(gui, range.first(), range.second(), shulkerBoxFix);
+            trySort(gui, range.first(), range.second(), shulkerBoxFix, swapSlot);
         }
     }
 
-    // Does quickSort even throw ?
-    private static void trySort(HandledScreen<?> gui, int start, int end, boolean shulkerBoxFix)
+    private static void trySort(HandledScreen<?> gui, int start, int end, boolean shulkerBoxFix, int swapSlot)
     {
         try
         {
-            quickSort(gui, start, end, shulkerBoxFix);
+            quickSort(gui, start, end, shulkerBoxFix, swapSlot);
         }
         catch (Exception err)
         {
@@ -2751,7 +2777,7 @@ public class InventoryUtils
         }
     }
 
-    private static void quickSort(HandledScreen<?> gui, int start, int end, boolean shulkerBoxFix)
+    private static void quickSort(HandledScreen<?> gui, int start, int end, boolean shulkerBoxFix, int swapSlot)
     {
         var ct = end - start;
         var handler = gui.getScreenHandler();
@@ -2808,8 +2834,7 @@ public class InventoryUtils
 
         // sort
         int limit = 0, max_limit = 200;
-        boolean right_click;
-        Pair<Integer,ItemStack> temp, dst, hold = null;
+        Pair<Integer,ItemStack> dst, hold = null;
 
         for (int src_ix = 0; src_ix < ct; ++src_ix)
         {
@@ -2830,29 +2855,18 @@ public class InventoryUtils
             snapshot.set(src_ix, hold);
             hold = src;
             ItemScroller.logger.debug("quickSort(): pick up {}; holding {}", src_ix, hold);
-            clickSlot(gui, slotindex_by_arrayindex[src_ix], 0, SlotActionType.PICKUP);
+            clickSlot(gui, slotindex_by_arrayindex[src_ix], swapSlot, SlotActionType.SWAP);
 
             // continually place the held item into its correct place, following the chain to its end
             // todo: we could skip swapping empty slots, but for some reason, this is not reliable. it seems to swap
             //       in an item from the player's hotbar into the container.
             for (limit = 0; limit < max_limit; ++limit)
             {
-                // bundle shenanigans. swapping held item/bundle/empty with am item/bundle/empty slot will require
-                // either a left click or right click
-                // :upside_down:
-                ItemStack a = hold.value();
-                ItemStack b = dst != null ? dst.value() : ItemStack.EMPTY;
-                right_click = (isBundle(a) || isBundle(b)) && !(a.isEmpty() || b.isEmpty());
-
                 snapshot.set(dst_ix, hold);
                 hold = dst;
+                clickSlot(gui, slotindex_by_arrayindex[dst_ix], swapSlot, SlotActionType.SWAP);
 
-                clickSlot(gui, slotindex_by_arrayindex[dst_ix], right_click?1:0, SlotActionType.PICKUP);
-
-                ItemScroller.logger.debug(
-                    "quickSort(): ... {} click {} {}; holding {}",
-                    right_click?"right":"left", dst_ix, dst != null ? dst.value() : "null", hold
-                );
+                ItemScroller.logger.debug("quickSort(): ... swap {} {}; holding {}", dst_ix, dst != null ? dst.value() : "null", hold);
                 if (hold == null)
                 {
                     break;
