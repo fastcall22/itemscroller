@@ -2742,10 +2742,8 @@ public class InventoryUtils
                 return;
             }
         }
+
         final int swapSlot = hotbarSlot;
-
-
-
 
         //System.out.printf("Sorting [%d, %d] (first, second)\n", range.first(), range.second());
         //System.out.printf("Sorting [%d, %d] (left, right)\n", range.left(), range.right());
